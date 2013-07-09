@@ -35,6 +35,10 @@
         },
       }],
       ['OS!="win"', {
+        'variables' : {
+            'couchbase_root%' : '""'
+        },
+
         'link_settings': {
           'libraries': [
             '$(EXTRA_LDFLAGS)',
@@ -62,18 +66,33 @@
         'cflags_cc!': [
           '-fno-exceptions',
         ],
-      }],
+        'conditions': [
+            [ 'couchbase_root!=""', {
+                'include_dirs': [ '<(couchbase_root)/include' ],
+                'libraries+': [
+                    '-L<(couchbase_root)/lib',
+                    '-Wl,-rpath=<(couchbase_root)/lib'
+                ]
+            }]
+        ],
+      }]
     ],
+    'defines': ['LCBUV_NODEJS'],
     'sources': [
       'src/couchbase_impl.cc',
       'src/namemap.cc',
       'src/notify.cc',
       'src/operations.cc',
       'src/cas.cc',
-      'src/ioplugin.cc'
+      'src/io/socket.c',
+      'src/io/timer.c',
+      'src/io/util.c',
+      'src/io/iops.c',
+      'src/io/plugin.c'
     ],
     'include_dirs': [
       './',
+      './src/io'
     ],
   }]
 }
