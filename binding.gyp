@@ -35,6 +35,10 @@
         },
       }],
       ['OS!="win"', {
+        'variables' : {
+            'couchbase_root%' : '""'
+        },
+
         'link_settings': {
           'libraries': [
             '$(EXTRA_LDFLAGS)',
@@ -62,7 +66,16 @@
         'cflags_cc!': [
           '-fno-exceptions',
         ],
-      }],
+        'conditions': [
+            [ 'couchbase_root!=""', {
+                'include_dirs': [ '<(couchbase_root)/include' ],
+                'libraries+': [
+                    '-L<(couchbase_root)/lib',
+                    '-Wl,-rpath=<(couchbase_root)/lib'
+                ]
+            }]
+        ],
+      }]
     ],
     'defines': ['LCBUV_EMBEDDED_SOURCE'],
     'sources': [
@@ -75,6 +88,7 @@
     ],
     'include_dirs': [
       './',
+      './src/io'
     ],
   }]
 }
