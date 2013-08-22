@@ -33,10 +33,20 @@ namespace Couchnode
             EXPIRY = 0,
             CAS,
             DATA,
+            KEY,
+            VALUE,
+            LOCKTIME,
             INITIAL,
+            FLAGS,
             OPSTYLE_POSITIONAL,
             OPSTYLE_HASHTABLE,
             PROP_STR,
+            HTCODE,
+            DELTA,
+            PERSIST_TO,
+            REPLICATE_TO,
+            TIMEOUT,
+            SPOOLED,
             MAX
         } dict_t;
         static v8::Persistent<v8::String> names[MAX];

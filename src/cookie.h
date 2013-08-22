@@ -8,71 +8,92 @@
 
 namespace Couchnode
 {
+using namespace v8;
 
-    class CouchbaseCookie
-    {
+typedef enum {
+    CBMODE_SINGLE,
+    CBMODE_SPOOLED
+} CallbackMode;
 
-    public:
-        CouchbaseCookie(v8::Handle<v8::Value> cbo,
-                        v8::Handle<v8::Function> callback,
-                        v8::Handle<v8::Value> data,
-                        unsigned int numRemaining);
-        virtual ~CouchbaseCookie();
+class ResponseInfo {
+public:
+    lcb_error_t status;
+    Persistent<Object> payload;
 
-        void result(lcb_error_t error,
-                    const void *key, lcb_size_t nkey,
-                    lcb_cas_t cas,
-                    lcb_observe_t status,
-                    int from_master,
-                    lcb_time_t ttp,
-                    lcb_time_t ttr);
+    Handle<Value> getKey() {
+        return String::New((const char *)key, nkey);
+    }
 
-        void result(lcb_error_t error,
-                    const void *key, lcb_size_t nkey,
-                    const void *bytes,
-                    lcb_size_t nbytes,
-                    lcb_uint32_t flags,
-                    lcb_cas_t cas);
+    ~ResponseInfo() {
+        payload.Dispose();
+        payload.Clear();
+    }
 
-        void result(lcb_error_t error,
-                    const void *key, lcb_size_t nkey,
-                    lcb_cas_t cas);
+    ResponseInfo(lcb_error_t, const lcb_get_resp_t*);
+    ResponseInfo(lcb_error_t, const lcb_store_resp_t *);
+    ResponseInfo(lcb_error_t, const lcb_arithmetic_resp_t*);
+    ResponseInfo(lcb_error_t, const lcb_touch_resp_t*);
+    ResponseInfo(lcb_error_t, const lcb_unlock_resp_t *);
+    ResponseInfo(lcb_error_t, const lcb_durability_resp_t *);
+    ResponseInfo(lcb_error_t, const lcb_remove_resp_t *);
+    ResponseInfo(lcb_error_t, const lcb_http_resp_t *resp);
+    ResponseInfo(lcb_error_t);
 
-        void result(lcb_error_t error,
-                    const void *key, lcb_size_t nkey,
-                    lcb_uint64_t value,
-                    lcb_cas_t cas);
+    const void *key;
+    size_t nkey;
 
-        void result(lcb_error_t error,
-                    const void *key, lcb_size_t nkey);
+private:
+    ResponseInfo(ResponseInfo&);
 
-        void result(lcb_error_t error, const lcb_http_resp_t *);
+    // Helpers
+    void setCas(lcb_cas_t cas) {
+        payload->Set(NameMap::names[NameMap::CAS], Cas::CreateCas(cas));
+    }
 
+    void setValue(Handle<Value>& val) {
+        payload->Set(NameMap::names[NameMap::VALUE], val);
+    }
 
-    protected:
-        void invokeProgress(int argc, v8::Local<v8::Value> *argv) {
-            // Now, invoke the callback with the appropriate arguments
-            v8::TryCatch try_catch;
-            ucallback->Call(v8::Context::GetEntered()->Global(), argc , argv);
-            if (try_catch.HasCaught()) {
-                node::FatalException(try_catch);
-                //return Undefined(node_isolate);
-            }
-        }
+};
 
-        unsigned int remaining;
-        void invoke(int argc, v8::Local<v8::Value> *argv) {
-            invokeProgress(argc, argv);
-            if (--remaining == 0) {
-                delete this;
-            }
-        }
+class Cookie
+{
+public:
+    Cookie(unsigned int numRemaining)
+        : remaining(numRemaining), cbType(CBMODE_SINGLE), hasError(false) {}
 
-    private:
-        v8::Persistent<v8::Value> parent;
-        v8::Persistent<v8::Value> ucookie;
-        v8::Persistent<v8::Function> ucallback;
-    };
+    void setCallback(Handle<Function> cb, CallbackMode mode) {
+        assert(callback.IsEmpty());
+        callback = Persistent<Function>::New(cb);
+        cbType = mode;
+    }
+
+    void setParent(v8::Handle<v8::Value> cbo) {
+        assert(parent.IsEmpty());
+        parent = v8::Persistent<v8::Value>::New(cbo);
+    }
+
+    virtual ~Cookie();
+    void markProgress(ResponseInfo&);
+    void cancel(lcb_error_t err);
+
+protected:
+    Persistent<Object> spooledInfo;
+    void invokeFinal();
+
+private:
+    unsigned int remaining;
+    void addSpooledInfo(Handle<Value>&, ResponseInfo&);
+    void invokeSingleCallback(Handle<Value>&, ResponseInfo&);
+    void invokeSpooledCallback();
+    Persistent<Value> parent;
+    Persistent<Function> callback;
+    CallbackMode cbType;
+    bool hasError;
+
+    // No copying
+    Cookie(Cookie&);
+};
 
 } // namespace Couchnode
 #endif // COUCHNODE_COOKIE_H

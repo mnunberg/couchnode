@@ -32,7 +32,7 @@ Logger logger;
 extern "C" {
     // node.js will call the init method when the shared object
     // is successfully loaded. Time to register our class!
-    static void init(v8::Handle<v8::Object> target)
+    static void init(Handle<Object> target)
     {
         CouchbaseImpl::Init(target);
     }
@@ -44,12 +44,12 @@ extern "C" {
 unsigned int CouchbaseImpl::objectCount;
 #endif
 
-v8::Handle<v8::Value> Couchnode::ThrowException(const char *str)
+Handle<Value> Couchnode::ThrowException(const char *str)
 {
-    return v8::ThrowException(v8::Exception::Error(v8::String::New(str)));
+    return ThrowException(Exception::Error(String::New(str)));
 }
 
-v8::Handle<v8::Value> Couchnode::ThrowIllegalArgumentsException(void)
+Handle<Value> Couchnode::ThrowIllegalArgumentsException(void)
 {
     return Couchnode::ThrowException("Illegal Arguments");
 }
@@ -87,16 +87,16 @@ CouchbaseImpl::~CouchbaseImpl()
     }
 }
 
-void CouchbaseImpl::Init(v8::Handle<v8::Object> target)
+void CouchbaseImpl::Init(Handle<Object> target)
 {
-    v8::HandleScope scope;
+    HandleScope scope;
 
-    v8::Local<v8::FunctionTemplate> t = v8::FunctionTemplate::New(New);
+    Local<FunctionTemplate> t = FunctionTemplate::New(New);
 
-    v8::Persistent<v8::FunctionTemplate> s_ct;
-    s_ct = v8::Persistent<v8::FunctionTemplate>::New(t);
+    Persistent<FunctionTemplate> s_ct;
+    s_ct = Persistent<FunctionTemplate>::New(t);
     s_ct->InstanceTemplate()->SetInternalFieldCount(1);
-    s_ct->SetClassName(v8::String::NewSymbol("CouchbaseImpl"));
+    s_ct->SetClassName(String::NewSymbol("CouchbaseImpl"));
 
     NODE_SET_PROTOTYPE_METHOD(s_ct, "strError", StrError);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "getVersion", GetVersion);
@@ -106,45 +106,44 @@ void CouchbaseImpl::Init(v8::Handle<v8::Object> target)
     NODE_SET_PROTOTYPE_METHOD(s_ct, "setSynchronous", SetSynchronous);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "isSynchronous", IsSynchronous);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "getLastError", GetLastError);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "get", Get);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "getAndLock", GetAndLock);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "unlock", Unlock);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "store", Store);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "on", On);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "arithmetic", Arithmetic);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "remove", Remove);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "touch", Touch);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "observe", Observe);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "view", View);
+//    NODE_SET_PROTOTYPE_METHOD(s_ct, "view", View);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "shutdown", Shutdown);
+//    NODE_SET_PROTOTYPE_METHOD(s_ct, "getDesignDoc", GetDesignDoc);
+//    NODE_SET_PROTOTYPE_METHOD(s_ct, "setDesignDoc", SetDesignDoc);
+//    NODE_SET_PROTOTYPE_METHOD(s_ct, "deleteDesignDoc", DeleteDesignDoc);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "setMultiEx", SetMultiEx);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "addMultiEx", AddMultiEx);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "replaceMultiEx", ReplaceMultiEx);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "appendMultiEx", AppendMultiEx);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "getMultiEx", GetMultiEx);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "lockMultiEx", LockMultiEx);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "unlockMultiEx", UnlockMultiEx);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "arithmeticMultiEx", ArithmeticMultiEx);
 
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "getDesignDoc", GetDesignDoc);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "setDesignDoc", SetDesignDoc);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "deleteDesignDoc", DeleteDesignDoc);
-
-    target->Set(v8::String::NewSymbol("CouchbaseImpl"), s_ct->GetFunction());
+    target->Set(String::NewSymbol("CouchbaseImpl"), s_ct->GetFunction());
 
     NameMap::initialize();
     Cas::initialize();
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::On(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::On(const Arguments &args)
 {
     if (args.Length() != 2 || !args[0]->IsString() || !args[1]->IsFunction()) {
         return ThrowException("Usage: cb.on('event', 'callback')");
     }
 
     // @todo verify that the user specifies a valid monitor ;)
-    v8::HandleScope scope;
+    HandleScope scope;
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    v8::Handle<v8::Value> ret = me->on(args);
+    Handle<Value> ret = me->on(args);
     return scope.Close(ret);
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::on(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::on(const Arguments &args)
 {
-    v8::HandleScope scope;
-    v8::Local<v8::String> s = args[0]->ToString();
+    HandleScope scope;
+    Local<String> s = args[0]->ToString();
     char *func = new char[s->Length() + 1];
     memset(func, 0, s->Length() + 1);
     s->WriteAscii(func);
@@ -159,15 +158,15 @@ v8::Handle<v8::Value> CouchbaseImpl::on(const v8::Arguments &args)
     }
 
     events[function] =
-        v8::Persistent<v8::Function>::New(
-            v8::Local<v8::Function>::Cast(args[1]));
+        Persistent<Function>::New(
+            Local<Function>::Cast(args[1]));
 
-    return scope.Close(v8::True());
+    return scope.Close(True());
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::New(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::New(const Arguments &args)
 {
-    v8::HandleScope scope;
+    HandleScope scope;
 
     if (args.Length() < 1) {
         return ThrowException("You need to specify the URI for the REST server");
@@ -183,7 +182,7 @@ v8::Handle<v8::Value> CouchbaseImpl::New(const v8::Arguments &args)
 
     for (int ii = 0; ii < args.Length(); ++ii) {
         if (args[ii]->IsString()) {
-            v8::Local<v8::String> s = args[ii]->ToString();
+            Local<String> s = args[ii]->ToString();
             argv[ii] = new char[s->Length() + 1];
             s->WriteAscii(argv[ii]);
         } else if (!args[ii]->IsNull() && !args[ii]->IsUndefined()) {
@@ -210,8 +209,6 @@ v8::Handle<v8::Value> CouchbaseImpl::New(const v8::Arguments &args)
 
     lcb_create_st createOptions(argv[0], argv[1], argv[2], argv[3], iops);
 
-
-
     lcb_t instance;
     err = lcb_create(&instance, &createOptions);
     for (int ii = 0; ii < 4; ++ii) {
@@ -222,6 +219,10 @@ v8::Handle<v8::Value> CouchbaseImpl::New(const v8::Arguments &args)
         return ThrowException("Failed to create libcouchbase instance");
     }
 
+    lcb_uint32_t val = 10000000;
+    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGURATION_TIMEOUT, &val);
+    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &val);
+
     if (lcb_connect(instance) != LCB_SUCCESS) {
         return ThrowException("Failed to schedule connection");
     }
@@ -231,77 +232,77 @@ v8::Handle<v8::Value> CouchbaseImpl::New(const v8::Arguments &args)
     return args.This();
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::StrError(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::StrError(const Arguments &args)
 {
-    v8::HandleScope scope;
+    HandleScope scope;
 
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     lcb_error_t errorCode = (lcb_error_t)args[0]->Int32Value();
     const char *errorStr = lcb_strerror(me->instance, errorCode);
 
-    v8::Local<v8::String> result = v8::String::New(errorStr);
+    Local<String> result = String::New(errorStr);
     return scope.Close(result);
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::GetVersion(const v8::Arguments &)
+Handle<Value> CouchbaseImpl::GetVersion(const Arguments &)
 {
-    v8::HandleScope scope;
+    HandleScope scope;
 
     stringstream ss;
     ss << "libcouchbase node.js v1.0.0 (v" << lcb_get_version(NULL)
        << ")";
 
-    v8::Local<v8::String> result = v8::String::New(ss.str().c_str());
+    Local<String> result = String::New(ss.str().c_str());
     return scope.Close(result);
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::SetTimeout(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::SetTimeout(const Arguments &args)
 {
     if (args.Length() != 1 || !args[0]->IsInt32()) {
         return ThrowIllegalArgumentsException();
     }
 
-    v8::HandleScope scope;
+    HandleScope scope;
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     uint32_t timeout = args[0]->Int32Value();
     lcb_set_timeout(me->instance, timeout);
 
-    return v8::True();
+    return True();
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::GetTimeout(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::GetTimeout(const Arguments &args)
 {
     if (args.Length() != 0) {
         return ThrowIllegalArgumentsException();
     }
 
-    v8::HandleScope scope;
+    HandleScope scope;
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    return scope.Close(v8::Integer::New(lcb_get_timeout(me->instance)));
+    return scope.Close(Integer::New(lcb_get_timeout(me->instance)));
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::GetRestUri(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::GetRestUri(const Arguments &args)
 {
     if (args.Length() != 0) {
         return ThrowIllegalArgumentsException();
     }
 
-    v8::HandleScope scope;
+    HandleScope scope;
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     stringstream ss;
     ss << lcb_get_host(me->instance) << ":" << lcb_get_port(
            me->instance);
 
-    return scope.Close(v8::String::New(ss.str().c_str()));
+    return scope.Close(String::New(ss.str().c_str()));
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::SetSynchronous(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::SetSynchronous(const Arguments &args)
 {
     if (args.Length() != 1) {
         return ThrowIllegalArgumentsException();
     }
 
-    v8::HandleScope scope;
+    HandleScope scope;
 
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
 
@@ -313,35 +314,35 @@ v8::Handle<v8::Value> CouchbaseImpl::SetSynchronous(const v8::Arguments &args)
     }
 
     lcb_behavior_set_syncmode(me->instance, mode);
-    return v8::True();
+    return True();
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::IsSynchronous(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::IsSynchronous(const Arguments &args)
 {
     if (args.Length() != 0) {
         return ThrowIllegalArgumentsException();
     }
 
-    v8::HandleScope scope;
+    HandleScope scope;
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     if (lcb_behavior_get_syncmode(me->instance)
             == LCB_SYNCHRONOUS) {
-        return v8::True();
+        return True();
     }
 
-    return v8::False();
+    return False();
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::GetLastError(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::GetLastError(const Arguments &args)
 {
     if (args.Length() != 0) {
         return ThrowIllegalArgumentsException();
     }
 
-    v8::HandleScope scope;
+    HandleScope scope;
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     const char *msg = lcb_strerror(me->instance, me->lastError);
-    return scope.Close(v8::String::New(msg));
+    return scope.Close(String::New(msg));
 }
 
 void CouchbaseImpl::errorCallback(lcb_error_t err, const char *errinfo)
@@ -350,7 +351,6 @@ void CouchbaseImpl::errorCallback(lcb_error_t err, const char *errinfo)
     if (!connected) {
         // Time to fail out all the commands..
         connected = true;
-        runScheduledOperations();
     }
 
     if (err == LCB_ETIMEDOUT && onTimeout()) {
@@ -360,7 +360,6 @@ void CouchbaseImpl::errorCallback(lcb_error_t err, const char *errinfo)
     lastError = err;
     EventMap::iterator iter = events.find("error");
     if (iter != events.end() && !iter->second.IsEmpty()) {
-        using namespace v8;
         Local<Value> argv[1] = { Local<Value>::New(String::New(errinfo ? errinfo : "")) };
         iter->second->Call(Context::GetEntered()->Global(), 1, argv);
     }
@@ -371,14 +370,13 @@ void CouchbaseImpl::onConnect(lcb_configuration_t config)
     if (config == LCB_CONFIGURATION_NEW) {
         if (!connected) {
             connected = true;
-            runScheduledOperations();
         }
+        runScheduledOperations();
     }
     lcb_set_configuration_callback(instance, NULL);
 
     EventMap::iterator iter = events.find("connect");
     if (iter != events.end() && !iter->second.IsEmpty()) {
-        using namespace v8;
         Local<Value> argv[1];
         iter->second->Call(Context::GetEntered()->Global(), 0, argv);
     }
@@ -388,164 +386,158 @@ bool CouchbaseImpl::onTimeout(void)
 {
     EventMap::iterator iter = events.find("timeout");
     if (iter != events.end() && !iter->second.IsEmpty()) {
-        using namespace v8;
         Local<Value> argv[1];
-        iter->second->Call(v8::Context::GetEntered()->Global(), 0, argv);
+        iter->second->Call(Context::GetEntered()->Global(), 0, argv);
         return true;
     }
 
     return false;
 }
 
-static inline v8::Handle<v8::Value> makeOperation(CouchbaseImpl *me,
-                                                  const v8::Arguments &arguments,
-                                                  Operation *op)
+void CouchbaseImpl::runScheduledOperations()
 {
-    try {
-        op->parse(arguments);
-    } catch (std::string &error) {
-        delete op;
-        return ThrowException(error.c_str());
-    }
-
-    lcb_error_t error = op->execute(me->getLibcouchbaseHandle());
-    if (error == LCB_SUCCESS) {
-        delete op;
-    } else {
-        me->setLastError(error);
-        if (me->isConnected()) {
-            op->cancel(error);
-            return v8::False();
+    while (!pendingCommands.empty()) {
+        Command *p = pendingCommands.front();
+        lcb_error_t err = p->execute(getLibcouchbaseHandle());
+        if (err != LCB_SUCCESS) {
+            p->getCookie()->cancel(err);
         }
-
-        me->scheduleOperation(op);
+        pendingCommands.pop();
     }
-
-    return v8::True();
 }
 
-void CouchbaseImpl::runScheduledOperations(void)
+// static
+Handle<Value> CouchbaseImpl::makeOperation(const Arguments &args, Command &op)
 {
-    QueuedOperationList::iterator iter = queuedOperations.begin();
-    for (; iter != queuedOperations.end(); iter++) {
+    HandleScope scope;
 
-        lcb_error_t err = (*iter)->execute(instance);
-        if (err != LCB_SUCCESS) {
-            lastError = err;
-            (*iter)->cancel(err);
-        }
-        delete *iter;
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+
+    if (!op.initialize()) {
+        return op.getError().throwV8();
     }
-    queuedOperations.clear();
+
+    if (!op.process()) {
+        return op.getError().throwV8();
+    }
+
+    Cookie *cc = op.createCookie();
+    cc->setParent(args.This());
+
+    if (!me->connected) {
+        abort();
+        // Schedule..
+        Command *cp = op.copy();
+        me->pendingCommands.push(cp);
+        // Place into queue..
+        return scope.Close(v8::True());
+
+    } else {
+        lcb_error_t err = op.execute(me->getLibcouchbaseHandle());
+
+        if (err == LCB_SUCCESS) {
+            return scope.Close(v8::True());
+
+        } else {
+            cc->cancel(err);
+            return scope.Close(v8::False());
+        }
+    }
 }
 
 /*******************************************
  ** Entry point for all of the operations **
  ******************************************/
-v8::Handle<v8::Value> CouchbaseImpl::Store(const v8::Arguments &args)
-{
-    v8::HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    StoreOperation *op = new StoreOperation;
-    return makeOperation(me, args, op);
+
+#define DEFINE_STOREOP(name, mode) \
+Handle<Value> CouchbaseImpl::name##MultiEx(const Arguments &args) \
+{ \
+    StoreCommand op(args, mode, ARGMODE_MULTI); \
+    return makeOperation(args, op); \
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::Get(const v8::Arguments &args)
+DEFINE_STOREOP(Set, LCB_SET)
+DEFINE_STOREOP(Add, LCB_ADD)
+DEFINE_STOREOP(Replace, LCB_REPLACE)
+DEFINE_STOREOP(Append, LCB_APPEND)
+DEFINE_STOREOP(Prepend, LCB_PREPEND)
+
+Handle<Value> CouchbaseImpl::GetMultiEx(const Arguments &args)
 {
-    v8::HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    GetOperation *op = new GetOperation;
-    return makeOperation(me, args, op);
+    GetCommand op(args, ARGMODE_MULTI);
+    return makeOperation(args, op);
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::GetAndLock(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::LockMultiEx(const Arguments &args)
 {
-    v8::HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    GetAndLockOperation *op = new GetAndLockOperation;
-    return makeOperation(me, args, op);
+    LockCommand op(args, ARGMODE_MULTI);
+    return makeOperation(args, op);
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::Unlock(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::UnlockMultiEx(const Arguments &args)
 {
-    v8::HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    UnlockOperation *op = new UnlockOperation;
-    return makeOperation(me, args, op);
+    UnlockCommand op(args, ARGMODE_MULTI);
+    return makeOperation(args, op);
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::Touch(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::TouchMultiEx(const Arguments &args)
 {
-    v8::HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    TouchOperation *op = new TouchOperation;
-    return makeOperation(me, args, op);
+    TouchCommand op(args, ARGMODE_MULTI);
+    return makeOperation(args, op);
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::Observe(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::ArithmeticMultiEx(const Arguments &args)
 {
-    v8::HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    ObserveOperation *op = new ObserveOperation;
-    return makeOperation(me, args, op);
+    ArithmeticCommand op(args, ARGMODE_MULTI);
+    return makeOperation(args, op);
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::Arithmetic(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::RemoveMultiEx(const Arguments &args)
 {
-    v8::HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    ArithmeticOperation *op = new ArithmeticOperation;
-    return makeOperation(me, args, op);
+    DeleteCommand op(args, ARGMODE_MULTI);
+    return makeOperation(args, op);
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::Remove(const v8::Arguments &args)
-{
-    v8::HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    RemoveOperation *op = new RemoveOperation;
-    return makeOperation(me, args, op);
-}
+//Handle<Value> CouchbaseImpl::View(const Arguments &args)
+//{
+//    HandleScope scope;
+//    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+//    ViewOperation *op = new ViewOperation;
+//    return makeOperation(me, args, op);
+//}
 
-v8::Handle<v8::Value> CouchbaseImpl::View(const v8::Arguments &args)
+Handle<Value> CouchbaseImpl::Shutdown(const Arguments &args)
 {
-    v8::HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    ViewOperation *op = new ViewOperation;
-    return makeOperation(me, args, op);
-}
-
-v8::Handle<v8::Value> CouchbaseImpl::Shutdown(const v8::Arguments &args)
-{
-    v8::HandleScope scope;
+    HandleScope scope;
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
     me->shutdown();
-    return scope.Close(v8::True());
+    return scope.Close(True());
 }
 
-v8::Handle<v8::Value> CouchbaseImpl::GetDesignDoc(const v8::Arguments &args)
-{
-    v8::HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    GetDesignDocOperation *op = new GetDesignDocOperation;
-    return makeOperation(me, args, op);
-}
-
-v8::Handle<v8::Value> CouchbaseImpl::SetDesignDoc(const v8::Arguments &args)
-{
-    v8::HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    SetDesignDocOperation *op = new SetDesignDocOperation;
-    return makeOperation(me, args, op);
-}
-
-v8::Handle<v8::Value> CouchbaseImpl::DeleteDesignDoc(const v8::Arguments &args)
-{
-    v8::HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    DeleteDesignDocOperation *op = new DeleteDesignDocOperation;
-    return makeOperation(me, args, op);
-}
-
+//Handle<Value> CouchbaseImpl::GetDesignDoc(const Arguments &args)
+//{
+//    HandleScope scope;
+//    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+//    GetDesignDocOperation *op = new GetDesignDocOperation;
+//    return makeOperation(me, args, op);
+//}
+//
+//Handle<Value> CouchbaseImpl::SetDesignDoc(const Arguments &args)
+//{
+//    HandleScope scope;
+//    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+//    SetDesignDocOperation *op = new SetDesignDocOperation;
+//    return makeOperation(me, args, op);
+//}
+//
+//Handle<Value> CouchbaseImpl::DeleteDesignDoc(const Arguments &args)
+//{
+//    HandleScope scope;
+//    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+//    DeleteDesignDocOperation *op = new DeleteDesignDocOperation;
+//    return makeOperation(me, args, op);
+//}
+//
 extern "C" {
     static void libuv_shutdown_cb(uv_timer_t* t, int) {
         ScopeLogger sl("libuv_shutdown_cb");

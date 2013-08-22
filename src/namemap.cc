@@ -30,6 +30,17 @@ void NameMap::initialize()
     install("positional", OPSTYLE_POSITIONAL);
     install("dict", OPSTYLE_HASHTABLE);
     install("str", PROP_STR);
+    install("locktime", LOCKTIME);
+    install("flags", FLAGS);
+    install("key", KEY);
+    install("value", VALUE);
+    install("http_code", HTCODE);
+    install("delta", DELTA);
+    install("persist_to", PERSIST_TO);
+    install("replicate_to", REPLICATE_TO);
+    install("timeout", TIMEOUT);
+    install("spooled", SPOOLED);
+
 }
 
 void NameMap::install(const char *name, dict_t val)

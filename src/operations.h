@@ -77,7 +77,7 @@ namespace Couchnode
         }
      private:
         lcb_store_cmd_t cmd;
-        CouchbaseCookie *cookie;
+        Cookie *cookie;
     };
 
     class GetOperation : public Operation {
@@ -107,7 +107,7 @@ namespace Couchnode
     private:
         int numCommands;
         lcb_get_cmd_t ** cmds;
-        CouchbaseCookie *cookie;
+        Cookie *cookie;
     };
 
     class GetAndLockOperation : public Operation {
@@ -137,7 +137,7 @@ namespace Couchnode
     private:
         int numCommands;
         lcb_get_cmd_t ** cmds;
-        CouchbaseCookie *cookie;
+        Cookie *cookie;
     };
 
     class UnlockOperation : public Operation {
@@ -167,7 +167,7 @@ namespace Couchnode
     private:
         int numCommands;
         lcb_unlock_cmd_t ** cmds;
-        CouchbaseCookie *cookie;
+        Cookie *cookie;
     };
 
     class TouchOperation : public Operation {
@@ -189,7 +189,7 @@ namespace Couchnode
         }
      private:
         lcb_touch_cmd_t cmd;
-        CouchbaseCookie *cookie;
+        Cookie *cookie;
     };
 
     class ObserveOperation : public Operation {
@@ -214,7 +214,7 @@ namespace Couchnode
 
      private:
         lcb_observe_cmd_t cmd;
-        CouchbaseCookie *cookie;
+        Cookie *cookie;
     };
 
     class RemoveOperation : public Operation {
@@ -238,7 +238,7 @@ namespace Couchnode
 
      private:
         lcb_remove_cmd_t cmd;
-        CouchbaseCookie *cookie;
+        Cookie *cookie;
     };
 
     class ArithmeticOperation : public Operation {
@@ -261,7 +261,7 @@ namespace Couchnode
         }
      private:
         lcb_arithmetic_cmd_t cmd;
-        CouchbaseCookie *cookie;
+        Cookie *cookie;
     };
 
     class HttpOperation : public Operation {
@@ -288,7 +288,7 @@ namespace Couchnode
         std::stringstream path;
         std::string body;
         lcb_http_cmd_t cmd;
-        CouchbaseCookie *cookie;
+        Cookie *cookie;
     };
 
     class GetDesignDocOperation : public HttpOperation {

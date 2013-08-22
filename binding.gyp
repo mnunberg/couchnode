@@ -81,8 +81,10 @@
     'sources': [
       'src/couchbase_impl.cc',
       'src/namemap.cc',
-      'src/notify.cc',
-      'src/operations.cc',
+      'src/cookie.cc',
+      'src/commandbase.cc',
+      'src/commands.cc',
+      'src/options.cc',
       'src/cas.cc',
       'src/uv-plugin-all.c'
     ],
