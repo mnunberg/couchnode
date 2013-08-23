@@ -57,9 +57,9 @@ struct TouchOptions : Parameters
 
 struct DurabilityOptions : Parameters
 {
-    NAMED_OPTION(PersistToOption, Uint64Option, PERSIST_TO);
-    NAMED_OPTION(ReplicateToOption, Uint64Option, REPLICATE_TO);
-    NAMED_OPTION(TimeoutOption, Uint64Option, TIMEOUT);
+    NAMED_OPTION(PersistToOption, Int32Option, PERSIST_TO);
+    NAMED_OPTION(ReplicateToOption, Int32Option, REPLICATE_TO);
+    NAMED_OPTION(TimeoutOption, UInt32Option, TIMEOUT);
 
     // Members
     PersistToOption persist_to;
@@ -70,7 +70,7 @@ struct DurabilityOptions : Parameters
 
 struct ArithmeticOptions : Parameters
 {
-    NAMED_OPTION(InitialOption, Uint64Option, INITIAL);
+    NAMED_OPTION(InitialOption, UInt64Option, INITIAL);
     NAMED_OPTION(DeltaOption, Int64Option, DELTA);
 
     ExpOption exp;

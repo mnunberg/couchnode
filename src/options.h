@@ -28,7 +28,11 @@ namespace Couchnode {
 enum ParseStatus {
     PARSE_OPTION_EMPTY,
     PARSE_OPTION_ERROR,
-    PARSE_OPTION_FOUND
+    PARSE_OPTION_FOUND,
+
+    // Option was found in the parameters, but contains a non-numeric
+    // false, null, or undefined value
+    PARSE_OPTION_FALSEVAL
 };
 
 struct ParamSlot {
@@ -47,9 +51,44 @@ struct ParamSlot {
     void forceIsFound() { status = PARSE_OPTION_FOUND; }
 
     ParseStatus status;
-
     static bool parseAll(const Handle<Object>, ParamSlot **, size_t, CBExc&);
+    bool maybeSetFalse(Handle<Value>);
+    template <typename T>
+    ParseStatus setNumber(Handle<Value> val, T& res) {
+        res = val->IntegerValue();
+        status = PARSE_OPTION_FOUND;
+        return status;
+    }
 };
+
+template <typename T>
+struct NumericSlot : ParamSlot
+{
+    T v;
+    NumericSlot() : v(0) {}
+    ParseStatus parseValue(const Handle<Value> value, CBExc &ex) {
+        if (maybeSetFalse(value)) {
+            return status;
+        }
+
+        if (!value->IsNumber()) {
+            ex.eArguments("Not a number", value);
+            return returnStatus(PARSE_OPTION_ERROR);
+        }
+        int64_t tmp = value->IntegerValue();
+        v = (T)tmp;
+        if ((int64_t)v != tmp) {
+            ex.eArguments("Overflow detected", value);
+            return returnStatus(PARSE_OPTION_ERROR);
+        }
+        return returnStatus(PARSE_OPTION_FOUND);
+    }
+};
+
+typedef NumericSlot<int64_t> Int64Option;
+typedef NumericSlot<uint64_t> UInt64Option;
+typedef NumericSlot<int32_t> Int32Option;
+typedef NumericSlot<uint32_t> UInt32Option;
 
 struct CasSlot : ParamSlot
 {
@@ -59,55 +98,35 @@ struct CasSlot : ParamSlot
         return NameMap::names[NameMap::CAS];
     }
 
-    virtual ParseStatus parseValue(const Handle<Value>, CBExc &);
+    ParseStatus parseValue(const Handle<Value>, CBExc &);
 };
 
-struct ExpOption : ParamSlot
+struct ExpOption : UInt32Option
 {
-    uint32_t v;
-    virtual ParseStatus parseValue(const Handle<Value>, CBExc &);
-    ExpOption() : v(0) {}
-
     virtual Handle<String> getName() const {
         return NameMap::names[NameMap::EXPIRY];
     }
 };
 
-struct LockOption : ExpOption {
+struct LockOption : ExpOption
+{
     virtual Handle<String> getName() const {
         return NameMap::names[NameMap::LOCKTIME];
     }
 };
 
-struct FlagsOption : ParamSlot
+struct FlagsOption : UInt32Option
 {
-    uint32_t v;
-    FlagsOption() : v(0) { }
-    virtual ParseStatus parseValue(const Handle<Value> val, CBExc &ex);
     virtual Handle<String> getName() const {
         return NameMap::names[NameMap::FLAGS];
     }
-};
-
-struct Int64Option : ParamSlot
-{
-    int64_t v;
-    Int64Option() : v(0) {}
-    virtual ParseStatus parseValue(const Handle<Value> , CBExc&);
-};
-
-struct Uint64Option : ParamSlot
-{
-    uint64_t v;
-    Uint64Option() :v(0) {}
-    virtual ParseStatus parseValue(const Handle<Value> , CBExc&);
 };
 
 struct BooleanOption : ParamSlot
 {
     bool v;
     BooleanOption() :v(false) {}
-    virtual ParseStatus parseValue(const Handle<Value> val, CBExc&) {
+    ParseStatus parseValue(const Handle<Value> val, CBExc&) {
         v = val->BooleanValue();
         return returnStatus(PARSE_OPTION_FOUND);
     }

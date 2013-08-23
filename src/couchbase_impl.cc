@@ -54,7 +54,7 @@ static Handle<Value> bailOut(const Arguments &args, CBExc &ex)
 
     if (cb.IsEmpty() || !cb->IsFunction()) {
         // no callback. must bail.
-        return ex.throwV8();
+        return ex.eArguments("No callback provided. Bailing out").throwV8();
     }
 
     Handle<Value> excObj = ex.asValue();
@@ -147,14 +147,15 @@ void CouchbaseImpl::Init(Handle<Object> target)
 //    NODE_SET_PROTOTYPE_METHOD(s_ct, "getDesignDoc", GetDesignDoc);
 //    NODE_SET_PROTOTYPE_METHOD(s_ct, "setDesignDoc", SetDesignDoc);
 //    NODE_SET_PROTOTYPE_METHOD(s_ct, "deleteDesignDoc", DeleteDesignDoc);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "setMultiEx", SetMultiEx);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "addMultiEx", AddMultiEx);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "replaceMultiEx", ReplaceMultiEx);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "appendMultiEx", AppendMultiEx);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "getMultiEx", GetMultiEx);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "lockMultiEx", LockMultiEx);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "unlockMultiEx", UnlockMultiEx);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "arithmeticMultiEx", ArithmeticMultiEx);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "setMulti", SetMulti);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "addMulti", AddMulti);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "replaceMulti", ReplaceMulti);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "appendMulti", AppendMulti);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "prependMulti", PrependMulti);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "getMulti", GetMulti);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "lockMulti", LockMulti);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "unlockMulti", UnlockMulti);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "arithmeticMulti", ArithmeticMulti);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "_control", _Control);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "_connect", Connect);
     target->Set(String::NewSymbol("CouchbaseImpl"), s_ct->GetFunction());
@@ -192,10 +193,7 @@ Handle<Value> CouchbaseImpl::on(const Arguments &args)
         iter->second.Clear();
     }
 
-    events[function] =
-        Persistent<Function>::New(
-            Local<Function>::Cast(args[1]));
-
+    events[function] = Persistent<Function>::New(Local<Function>::Cast(args[1]));
     return scope.Close(True());
 }
 
@@ -212,19 +210,18 @@ Handle<Value> CouchbaseImpl::New(const Arguments &args)
         return exc.eArguments("Too many arguments").throwV8();
     }
 
-    char *argv[4];
+    std::string argv[4];
     lcb_error_t err;
-    memset(argv, 0, sizeof(argv));
 
     for (int ii = 0; ii < args.Length(); ++ii) {
-        if (args[ii]->IsString()) {
-            Local<String> s = args[ii]->ToString();
-            argv[ii] = new char[s->Length() + 1];
-            s->WriteAscii(argv[ii]);
-
-        } else if (!args[ii]->IsNull() && !args[ii]->IsUndefined()) {
-            exc = CBExc("Incorrect arguments", args[ii]);
-            return exc.throwV8();
+        Local<Value> arg = args[ii];
+        if (arg->IsString()) {
+            String::Utf8Value s(arg);
+            argv[ii] = (char *)*s;
+        } else if (arg->IsNull() || arg->IsUndefined()) {
+            continue;
+        } else {
+            return exc.eArguments("Incorrect argument", args[ii]).throwV8();
         }
     }
 
@@ -241,14 +238,14 @@ Handle<Value> CouchbaseImpl::New(const Arguments &args)
         return exc.eLcb(err).throwV8();
     }
 
-
-    lcb_create_st createOptions(argv[0], argv[1], argv[2], argv[3], iops);
+    lcb_create_st createOptions(argv[0].c_str(),
+                                argv[1].c_str(),
+                                argv[2].c_str(),
+                                argv[3].c_str(),
+                                iops);
 
     lcb_t instance;
     err = lcb_create(&instance, &createOptions);
-    for (int ii = 0; ii < 4; ++ii) {
-        delete[] argv[ii];
-    }
 
     if (err != LCB_SUCCESS) {
         exc.eLcb(err).throwV8();
@@ -346,7 +343,8 @@ void CouchbaseImpl::runScheduledOperations()
 }
 
 // static
-Handle<Value> CouchbaseImpl::makeOperation(const Arguments &args, Command &op)
+template <typename T>
+Handle<Value> CouchbaseImpl::makeOperation(const Arguments &args, T &op)
 {
     HandleScope scope;
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
@@ -387,7 +385,7 @@ Handle<Value> CouchbaseImpl::makeOperation(const Arguments &args, Command &op)
  ******************************************/
 
 #define DEFINE_STOREOP(name, mode) \
-Handle<Value> CouchbaseImpl::name##MultiEx(const Arguments &args) \
+Handle<Value> CouchbaseImpl::name##Multi(const Arguments &args) \
 { \
     StoreCommand op(args, mode, ARGMODE_MULTI); \
     return makeOperation(args, op); \
@@ -399,37 +397,37 @@ DEFINE_STOREOP(Replace, LCB_REPLACE)
 DEFINE_STOREOP(Append, LCB_APPEND)
 DEFINE_STOREOP(Prepend, LCB_PREPEND)
 
-Handle<Value> CouchbaseImpl::GetMultiEx(const Arguments &args)
+Handle<Value> CouchbaseImpl::GetMulti(const Arguments &args)
 {
     GetCommand op(args, ARGMODE_MULTI);
     return makeOperation(args, op);
 }
 
-Handle<Value> CouchbaseImpl::LockMultiEx(const Arguments &args)
+Handle<Value> CouchbaseImpl::LockMulti(const Arguments &args)
 {
     LockCommand op(args, ARGMODE_MULTI);
     return makeOperation(args, op);
 }
 
-Handle<Value> CouchbaseImpl::UnlockMultiEx(const Arguments &args)
+Handle<Value> CouchbaseImpl::UnlockMulti(const Arguments &args)
 {
     UnlockCommand op(args, ARGMODE_MULTI);
     return makeOperation(args, op);
 }
 
-Handle<Value> CouchbaseImpl::TouchMultiEx(const Arguments &args)
+Handle<Value> CouchbaseImpl::TouchMulti(const Arguments &args)
 {
     TouchCommand op(args, ARGMODE_MULTI);
     return makeOperation(args, op);
 }
 
-Handle<Value> CouchbaseImpl::ArithmeticMultiEx(const Arguments &args)
+Handle<Value> CouchbaseImpl::ArithmeticMulti(const Arguments &args)
 {
     ArithmeticCommand op(args, ARGMODE_MULTI);
     return makeOperation(args, op);
 }
 
-Handle<Value> CouchbaseImpl::RemoveMultiEx(const Arguments &args)
+Handle<Value> CouchbaseImpl::RemoveMulti(const Arguments &args)
 {
     DeleteCommand op(args, ARGMODE_MULTI);
     return makeOperation(args, op);

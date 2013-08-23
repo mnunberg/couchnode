@@ -5,7 +5,7 @@ namespace Couchnode {
 
 CBExc::CBExc(const char *msg, Handle<Value> at)
     : message(msg), minor_(ERR_GENERIC), major_(EXC_INTERNAL),
-      err(LCB_SUCCESS), isSet(true)
+      err(LCB_SUCCESS), set_(true)
 {
     String::AsciiValue valstr(at);
     if (*valstr) {
@@ -20,24 +20,24 @@ CBExc::CBExc(const char *msg, Handle<Value> at)
 
 CBExc::CBExc()
     : message(""), minor_(ERR_OK), major_(EXC_SUCCESS),
-      err(LCB_SUCCESS), isSet(false)
+      err(LCB_SUCCESS), set_(false)
 {
 }
 
 void CBExc::assign(ErrType etype, ErrCode ecode, const std::string &msg)
 {
-    if (isSet) {
+    if (set_) {
         return;
     }
     major_ = etype;
     minor_ = ecode;
-    isSet = true;
+    set_ = true;
     message = msg;
 }
 
 void CBExc::assign(lcb_error_t lcberr)
 {
-    if (isSet) {
+    if (set_) {
         return;
     }
     err = lcberr;

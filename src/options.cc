@@ -2,15 +2,18 @@
 #include <cstdlib>
 namespace Couchnode {
 using std::cerr;
-static inline bool isFalseValue(const Handle<Value> v)
+
+bool ParamSlot::maybeSetFalse(Handle<Value> v)
 {
-    return (v.IsEmpty() || v->BooleanValue() == false);
+    if (v->IsUndefined() || v->IsNull() || v->IsFalse()) {
+        status = PARSE_OPTION_FALSEVAL;
+        return true;
+    }
+    return false;
 }
 
-bool ParamSlot::parseAll(const Handle<Object> dict,
-                             ParamSlot **specs,
-                             size_t nspecs,
-                             CBExc &ex)
+bool ParamSlot::parseAll(const Handle<Object> dict, ParamSlot **specs,
+                         size_t nspecs, CBExc &ex)
 {
     if (dict.IsEmpty()) {
         return true; // no options
@@ -18,7 +21,7 @@ bool ParamSlot::parseAll(const Handle<Object> dict,
 
     if (!dict->IsObject()) {
         if (dict->BooleanValue()) {
-            ex.eArguments("Value passed is not an object");
+            ex.eArguments("Value passed is not an object", dict);
             return false;
         }
         return true;
@@ -39,74 +42,36 @@ bool ParamSlot::parseAll(const Handle<Object> dict,
 
         ParseStatus status = cur->parseValue(val, ex);
         if (status == PARSE_OPTION_ERROR) {
+            assert(ex.isSet());
             return false;
         }
     }
     return true;
 }
 
-ParseStatus ParamSlot::validateNumber(const Handle<Value> val, CBExc &ex)
-{
-    if (! (val->IsNumber() || val->IsString())) {
-        if (!isFalseValue(val)) {
-            ex.eArguments("Non-false non-numeric value specified");
-            return PARSE_OPTION_ERROR;
-        }
-        return PARSE_OPTION_EMPTY;
-    }
-    return PARSE_OPTION_FOUND;
-}
 
-ParseStatus CasSlot::parseValue(const Handle<Value> value,
-                                  CBExc &ex)
+ParseStatus CasSlot::parseValue(const Handle<Value> value, CBExc &ex)
 {
-    if (isFalseValue(value)) {
-        v = 0;
-        return PARSE_OPTION_EMPTY;
+
+    if (maybeSetFalse(value)) {
+        return status;
     }
 
     if (!Cas::GetCas(value, &v)) {
-        ex.eArguments("Bad CAS");
+        ex.eArguments("Bad CAS", value);
         return PARSE_OPTION_ERROR;
     }
     return PARSE_OPTION_FOUND;
-}
-
-ParseStatus ExpOption::parseValue(const Handle<Value> value,
-                                  CBExc &ex)
-{
-    ParseStatus status = validateNumber(value, ex);
-    if (status != PARSE_OPTION_FOUND) {
-        return status;
-    }
-
-    int32_t iv = value->IntegerValue();
-    if (iv < 0) {
-        ex.eArguments("Expiry cannot be negative");
-        return PARSE_OPTION_ERROR;
-    }
-
-    v = iv;
-    return PARSE_OPTION_FOUND;
-}
-
-ParseStatus FlagsOption::parseValue(const Handle<Value> val, CBExc &ex)
-{
-    if ( (status = validateNumber(val, ex)) != PARSE_OPTION_FOUND) {
-        return status;
-    }
-
-    v = val->Uint32Value();
-    return returnStatus(PARSE_OPTION_FOUND);
 }
 
 ParseStatus CallableOption::parseValue(const Handle<Value> val, CBExc &ex)
 {
-    if (isFalseValue(val)) {
-        return returnStatus(PARSE_OPTION_EMPTY);
+    if (maybeSetFalse(val)) {
+        return status;
     }
+
     if (!val->IsFunction()) {
-        ex.eArguments("Expected callback or false value");
+        ex.eArguments("Expected callback", val);
         return returnStatus(PARSE_OPTION_ERROR);
     }
 
@@ -117,32 +82,12 @@ ParseStatus CallableOption::parseValue(const Handle<Value> val, CBExc &ex)
 ParseStatus StringOption::parseValue(const Handle<Value> val, CBExc &ex)
 {
     if (val->IsNumber() == false && val->IsString() == false) {
-        ex.eArguments("String option must be number or string");
+        ex.eArguments("String option must be number or string", val);
         return returnStatus(PARSE_OPTION_ERROR);
     }
 
     v = val->ToString();
     return returnStatus(PARSE_OPTION_FOUND);
-}
-
-ParseStatus Uint64Option::parseValue(const Handle<Value> val, CBExc &ex)
-{
-    if ( (status = validateNumber(val, ex)) != PARSE_OPTION_FOUND) {
-        return status;
-    }
-
-    v = val->IntegerValue();
-    return returnStatus(PARSE_OPTION_FOUND);
-}
-
-ParseStatus Int64Option::parseValue(const Handle<Value> val, CBExc &ex)
-{
-    if ( (status = validateNumber(val, ex)) != PARSE_OPTION_FOUND) {
-        return status;
-    }
-
-    v = val->IntegerValue();
-    return status;
 }
 
 };

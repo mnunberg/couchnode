@@ -1,5 +1,9 @@
 #include "couchbase_impl.h"
 
+// Thanks mauke
+#define STRINGIFY_(X) #X
+#define STRINGIFY(X) STRINGIFY_(X)
+
 namespace Couchnode
 {
 
@@ -87,9 +91,13 @@ Handle<Value> CouchbaseImpl::_Control(const Arguments &args)
         lcb_uint32_t vnum;
         vstr = lcb_get_version(&vnum);
 
-        Handle<Array> ret = Array::New(2);
+        Handle<Array> ret = Array::New(4);
         ret->Set(0, Integer::New(vnum));
         ret->Set(1, String::New(vstr));
+
+        // Version and changeset of the headers
+        ret->Set(2, String::New("HDR(VERSION): "LCB_VERSION_STRING));
+        ret->Set(3, String::New("HDR(CHANGESET): "STRINGIFY(LCB_VERSION_CHANGESET)));
         return scope.Close(ret);
     }
 

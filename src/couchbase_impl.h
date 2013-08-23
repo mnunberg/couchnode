@@ -72,8 +72,6 @@ enum ControlCode {
     CNTL_RESTURI = 0x1004
 };
 
-class QueuedCommand;
-
 class CouchbaseImpl: public node::ObjectWrap
 {
 public:
@@ -87,17 +85,17 @@ public:
     static Handle<Value> SetHandler(const Arguments &);
 
     static Handle<Value> GetLastError(const Arguments &);
-    static Handle<Value> GetMultiEx(const Arguments &);
-    static Handle<Value> LockMultiEx(const Arguments &);
-    static Handle<Value> SetMultiEx(const Arguments &);
-    static Handle<Value> ReplaceMultiEx(const Arguments &);
-    static Handle<Value> AddMultiEx(const Arguments &);
-    static Handle<Value> AppendMultiEx(const Arguments &);
-    static Handle<Value> PrependMultiEx(const Arguments &);
-    static Handle<Value> RemoveMultiEx(const Arguments &);
-    static Handle<Value> ArithmeticMultiEx(const Arguments &);
-    static Handle<Value> TouchMultiEx(const Arguments &);
-    static Handle<Value> UnlockMultiEx(const Arguments &);
+    static Handle<Value> GetMulti(const Arguments &);
+    static Handle<Value> LockMulti(const Arguments &);
+    static Handle<Value> SetMulti(const Arguments &);
+    static Handle<Value> ReplaceMulti(const Arguments &);
+    static Handle<Value> AddMulti(const Arguments &);
+    static Handle<Value> AppendMulti(const Arguments &);
+    static Handle<Value> PrependMulti(const Arguments &);
+    static Handle<Value> RemoveMulti(const Arguments &);
+    static Handle<Value> ArithmeticMulti(const Arguments &);
+    static Handle<Value> TouchMulti(const Arguments &);
+    static Handle<Value> UnlockMulti(const Arguments &);
     static Handle<Value> View(const Arguments &);
     static Handle<Value> Shutdown(const Arguments &);
     static Handle<Value> _Control(const Arguments &);
@@ -130,10 +128,6 @@ public:
         return connected;
     }
 
-    bool isUsingHashtableParams(void) const {
-        return useHashtableParams;
-    }
-
     static void dumpMemoryInfo(const std::string&);
 
 protected:
@@ -152,7 +146,8 @@ protected:
     static unsigned int objectCount;
 #endif
 private:
-    static Handle<Value> makeOperation(const Arguments&, Command&);
+    template <class T>
+    static Handle<Value> makeOperation(const Arguments&, T&);
 };
 
 

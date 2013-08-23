@@ -43,7 +43,7 @@ public:
     // These all return the object so one can do:
     // CBExc().eArguments().throwV8();
 
-    CBExc& eArguments(const std::string& msg = "") {
+    CBExc& eArguments(const std::string& msg = "", Handle<Value> = Handle<Value>()) {
         assign(EXC_ARGUMENTS, ERR_USAGE, msg);
         return *this;
     }
@@ -69,7 +69,10 @@ public:
 
     virtual std::string formatMessage() const;
 
-    Handle<Value> throwV8() { return throwV8Object(); }
+    Handle<Value> throwV8() {
+        assert(!(message.empty() && minor_ == ERR_OK && major_ == EXC_SUCCESS && err == LCB_SUCCESS));
+        return throwV8Object();
+    }
     Handle<Value> asValue();
 
 
@@ -81,12 +84,14 @@ public:
         return v8::ThrowException(String::New(formatMessage().c_str()));
     }
 
+    bool isSet() const { return set_; }
+
 protected:
     std::string message;
     ErrCode minor_;
     ErrType major_;
     lcb_error_t err;
-    bool isSet;
+    bool set_;
 };
 
 }

@@ -44,6 +44,7 @@ bool Command::initialize()
         kcollType = ObjectKeys;
         Local<Array> propNames(keys.As<Object>()->GetPropertyNames());
         ncmds = propNames->Length();
+
     } else {
         kcollType = SingleKey;
         ncmds = 1;

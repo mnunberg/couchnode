@@ -6,7 +6,6 @@ namespace Couchnode {
 /// Get                                                                      ///
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-
 bool GetCommand::handleSingle(Command *p,
                               const char *key, lcb_size_t nkey,
                               Handle<Value>, unsigned int ix)
@@ -59,7 +58,7 @@ bool StoreCommand::handleSingle(Command *p, const char *key, size_t nkey,
         kOptions.isInitialized = true;
 
     } else {
-        ctx->err.eArguments("Must have options for set");
+        ctx->err.eArguments("Must have options for set", params);
         return false;
     }
 
