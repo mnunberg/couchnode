@@ -29,6 +29,7 @@ namespace Couchnode {
  * the stack.
  */
 
+
 template <typename T>
 class CommandList
 {
@@ -88,11 +89,11 @@ public:
 
     CommandList(CommandList& other) {
         ncmds = other.ncmds;
-        if (ncmds > 2) {
-            single_cmd = other.single_cmd;
+
+        if (ncmds < 2) {
+            memcpy(&single_cmd, &other.single_cmd, sizeof(single_cmd));
             cmds = &single_cmd;
             cmdlist = &cmds;
-
         } else {
             cmds = other.cmds;
             cmdlist = other.cmdlist;
@@ -100,10 +101,10 @@ public:
 
         other.cmds = NULL;
         other.cmdlist = NULL;
+        other.ncmds = 0;
     }
 
-    CommandList() :cmds(NULL), cmdlist(NULL), ncmds(0) {
-    }
+    CommandList() :cmds(NULL), cmdlist(NULL), ncmds(0) {}
 
     ~CommandList() {
         if (ncmds < 2) {

@@ -37,8 +37,7 @@ void Cookie::addSpooledInfo(Handle<Value>& ec, ResponseInfo& info)
     spooledInfo->Set(key, info.payload);
 }
 
-void Cookie::invokeSingleCallback(Handle<Value>& errNum,
-                                           ResponseInfo& info)
+void Cookie::invokeSingleCallback(Handle<Value>& errNum, ResponseInfo& info)
 {
     Handle<Value> args[2] = { errNum, info.payload };
     TryCatch try_catch;
@@ -52,6 +51,7 @@ void Cookie::invokeSpooledCallback()
 {
     Handle<Value> args[2] = { hasError ? v8::True() : v8::False(), spooledInfo };
     TryCatch try_catch;
+    printf("Invoking Spooled...");
     callback->Call(v8::Context::GetEntered()->Global(), 2, args);
     if (try_catch.HasCaught()) {
         node::FatalException(try_catch);
@@ -61,7 +61,6 @@ void Cookie::invokeSpooledCallback()
 
 void Cookie::markProgress(ResponseInfo &info) {
     remaining--;
-    HandleScope scope;
     Handle<Value> errNum;
 
     if (info.status != LCB_SUCCESS) {
@@ -109,7 +108,7 @@ void initCommonInfo_v0(ResponseInfo *tp, lcb_error_t err, const T* resp)
     tp->key = resp->v.v0.key;
     tp->nkey = resp->v.v0.nkey;
     tp->status = err;
-    tp->payload = Persistent<Object>::New(Object::New());
+    tp->payload = Object::New();
 }
 
 ResponseInfo::ResponseInfo(lcb_error_t err, const lcb_get_resp_t *resp)

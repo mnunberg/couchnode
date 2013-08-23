@@ -46,15 +46,7 @@ public:
         return ret;
     }
 
-    BufferList(BufferList& other)
-    {
-        this->bufList= other.bufList;
-        bytesUsed = other.bytesUsed;
-        bytesAllocated = other.bytesAllocated;
-        curBuf = other.curBuf;
-
-        other.bufList.clear();
-    }
+    bool empty() { return bufList.empty(); }
 
     ~BufferList() {
         for (unsigned int ii = 0; ii < bufList.size(); ii++) {
@@ -67,11 +59,26 @@ private:
         return bytesAllocated - bytesUsed;
     }
 
+
+    BufferList(BufferList& other) {
+        bufList = other.bufList;
+        bytesUsed = other.bytesUsed;
+        bytesAllocated = other.bytesAllocated;
+        curBuf = other.curBuf;
+
+        other.bufList.clear();
+        other.bytesUsed = 0;
+        other.bytesAllocated = 0;
+        other.curBuf = 0;
+    }
+
     static const unsigned int defaultSize = 1024;
     std::vector<char *> bufList;
     char *curBuf;
     size_t bytesUsed;
     size_t bytesAllocated;
+
+    friend class Command;
 
 };
 };

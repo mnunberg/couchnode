@@ -9,7 +9,7 @@ namespace Couchnode {
 
 bool GetCommand::handleSingle(Command *p,
                               const char *key, lcb_size_t nkey,
-                              Handle<Value>&, unsigned int ix)
+                              Handle<Value>, unsigned int ix)
 {
     GetCommand *ctx = static_cast<GetCommand *>(p);
     GetOptions *keyOptions = &ctx->globalOptions;
@@ -33,7 +33,7 @@ lcb_error_t GetCommand::execute(lcb_t instance)
     return lcb_get(instance, cookie, commands.size(), commands.getList());
 }
 
-bool GetOptions::parseObject(const Handle<Object> &options, CBExc &ex)
+bool GetOptions::parseObject(const Handle<Object> options, CBExc &ex)
 {
     ParamSlot *specs[] = { &expTime, &lockTime };
     return ParamSlot::parseAll(options, specs, 2, ex);
@@ -46,7 +46,7 @@ bool GetOptions::parseObject(const Handle<Object> &options, CBExc &ex)
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 bool StoreCommand::handleSingle(Command *p, const char *key, size_t nkey,
-                                Handle<Value>& params, unsigned int ix)
+                                Handle<Value> params, unsigned int ix)
 {
     StoreCommand *ctx = static_cast<StoreCommand *>(p);
     lcb_store_cmd_t *cmd = ctx->commands.getAt(ix);
@@ -102,7 +102,7 @@ lcb_error_t StoreCommand::execute(lcb_t instance)
     return lcb_store(instance, cookie, commands.size(), commands.getList());
 }
 
-bool StoreOptions::parseObject(const Handle<Object> &options, CBExc &ex)
+bool StoreOptions::parseObject(const Handle<Object> options, CBExc &ex)
 {
     ParamSlot *spec[] = { &cas, &exp, &flags, &value };
     if (!ParamSlot::parseAll(options, spec, 4, ex)) {
@@ -117,7 +117,7 @@ bool StoreOptions::parseObject(const Handle<Object> &options, CBExc &ex)
 /// Arithmetic                                                               ///
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-bool ArithmeticOptions::parseObject(const Handle<Object> &obj, CBExc &ex)
+bool ArithmeticOptions::parseObject(const Handle<Object> obj, CBExc &ex)
 {
     ParamSlot *spec[] = { &this->exp, &initial, &delta };
     return ParamSlot::parseAll(obj, spec, 3, ex);
@@ -139,7 +139,7 @@ void ArithmeticOptions::merge(const ArithmeticOptions &other)
 }
 
 bool ArithmeticCommand::handleSingle(Command *p, const char *k, size_t n,
-                                     Handle<Value> &params, unsigned int ix)
+                                     Handle<Value> params, unsigned int ix)
 {
     ArithmeticOptions kOptions;
     ArithmeticCommand *ctx = static_cast<ArithmeticCommand *>(p);
@@ -179,7 +179,7 @@ lcb_error_t ArithmeticCommand::execute(lcb_t instance)
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 bool DeleteCommand::handleSingle(Command *p, const char *k, size_t n,
-                                 Handle<Value> &params, unsigned int ix)
+                                 Handle<Value> params, unsigned int ix)
 {
     DeleteOptions *effectiveOptions;
     DeleteCommand *ctx = static_cast<DeleteCommand*>(p);
@@ -211,14 +211,14 @@ lcb_error_t DeleteCommand::execute(lcb_t instance)
 /// Unlock                                                                   ///
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-bool UnlockOptions::parseObject(const Handle<Object> &obj, CBExc &ex)
+bool UnlockOptions::parseObject(const Handle<Object> obj, CBExc &ex)
 {
     ParamSlot *spec = &cas;
     return ParamSlot::parseAll(obj, &spec, 1, ex);
 }
 
 bool UnlockCommand::handleSingle(Command *p, const char *k, size_t n,
-                                 Handle<Value> &params, unsigned int ix)
+                                 Handle<Value> params, unsigned int ix)
 {
     UnlockCommand *ctx = static_cast<UnlockCommand*>(p);
     UnlockOptions kOptions;
@@ -252,14 +252,14 @@ lcb_error_t UnlockCommand::execute(lcb_t instance)
 /// Touch                                                                    ///
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-bool TouchOptions::parseObject(const Handle<Object> &obj, CBExc &ex)
+bool TouchOptions::parseObject(const Handle<Object> obj, CBExc &ex)
 {
     ParamSlot *spec = &this->exp;
     return ParamSlot::parseAll(obj, &spec, 1, ex);
 }
 
 bool TouchCommand::handleSingle(Command *p, const char *k, size_t n,
-                                Handle<Value> &params, unsigned int ix)
+                                Handle<Value> params, unsigned int ix)
 {
     TouchCommand *ctx = static_cast<TouchCommand *>(p);
     TouchOptions kOptions;

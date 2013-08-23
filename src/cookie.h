@@ -18,15 +18,13 @@ typedef enum {
 class ResponseInfo {
 public:
     lcb_error_t status;
-    Persistent<Object> payload;
+    Handle<Object> payload;
 
     Handle<Value> getKey() {
         return String::New((const char *)key, nkey);
     }
 
     ~ResponseInfo() {
-        payload.Dispose();
-        payload.Clear();
     }
 
     ResponseInfo(lcb_error_t, const lcb_get_resp_t*);
@@ -41,6 +39,7 @@ public:
 
     const void *key;
     size_t nkey;
+    HandleScope scope;
 
 private:
     ResponseInfo(ResponseInfo&);

@@ -63,6 +63,14 @@
 namespace Couchnode
 {
 
+// These codes *should* be in lcb_cntl, but currently aren't.
+enum ControlCode {
+    _BEGIN = 0x1000,
+    CNTL_COUCHNODE_VERSION = 0x1001,
+    CNTL_LIBCOUCHBASE_VERSION = 0x1002,
+    CNTL_CLNODES = 0x1003,
+    CNTL_RESTURI = 0x1004
+};
 
 class QueuedCommand;
 
@@ -76,13 +84,8 @@ public:
     static void Init(Handle<Object> target);
     static Handle<Value> New(const Arguments &args);
     static Handle<Value> StrError(const Arguments &args);
-    static Handle<Value> GetVersion(const Arguments &);
-    static Handle<Value> SetTimeout(const Arguments &);
-    static Handle<Value> GetTimeout(const Arguments &);
-    static Handle<Value> GetRestUri(const Arguments &);
-    static Handle<Value> SetSynchronous(const Arguments &);
-    static Handle<Value> IsSynchronous(const Arguments &);
     static Handle<Value> SetHandler(const Arguments &);
+
     static Handle<Value> GetLastError(const Arguments &);
     static Handle<Value> GetMultiEx(const Arguments &);
     static Handle<Value> LockMultiEx(const Arguments &);
@@ -97,6 +100,8 @@ public:
     static Handle<Value> UnlockMultiEx(const Arguments &);
     static Handle<Value> View(const Arguments &);
     static Handle<Value> Shutdown(const Arguments &);
+    static Handle<Value> _Control(const Arguments &);
+    static Handle<Value> Connect(const Arguments &);
 
     // Design Doc Management
     static Handle<Value> GetDesignDoc(const Arguments &);
@@ -128,6 +133,9 @@ public:
     bool isUsingHashtableParams(void) const {
         return useHashtableParams;
     }
+
+    static void dumpMemoryInfo(const std::string&);
+
 protected:
     bool connected;
     bool useHashtableParams;

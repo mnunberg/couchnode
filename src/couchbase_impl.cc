@@ -44,15 +44,29 @@ extern "C" {
 unsigned int CouchbaseImpl::objectCount;
 #endif
 
-Handle<Value> Couchnode::ThrowException(const char *str)
+
+static Handle<Value> bailOut(const Arguments &args, CBExc &ex)
 {
-    return ThrowException(Exception::Error(String::New(str)));
+    Handle<Function> cb;
+    if (args.Length()) {
+        cb = args[args.Length()-1].As<Function>();
+    }
+
+    if (cb.IsEmpty() || !cb->IsFunction()) {
+        // no callback. must bail.
+        return ex.throwV8();
+    }
+
+    Handle<Value> excObj = ex.asValue();
+    TryCatch try_catch;
+    cb->Call(v8::Context::GetEntered()->Global(), 1, &excObj);
+    if (try_catch.HasCaught()) {
+        node::FatalException(try_catch);
+    }
+
+    return v8::False();
 }
 
-Handle<Value> Couchnode::ThrowIllegalArgumentsException(void)
-{
-    return Couchnode::ThrowException("Illegal Arguments");
-}
 
 CouchbaseImpl::CouchbaseImpl(lcb_t inst) :
     ObjectWrap(), connected(false), useHashtableParams(false),
@@ -87,6 +101,34 @@ CouchbaseImpl::~CouchbaseImpl()
     }
 }
 
+static Handle<Object> createConstants()
+{
+    Handle<Object> o = Object::New();
+#define XCONSTANTS(X) \
+    X(LCB_CNTL_SET) \
+    X(LCB_CNTL_GET) \
+    X(LCB_CNTL_OP_TIMEOUT) \
+    X(LCB_CNTL_DURABILITY_INTERVAL) \
+    X(LCB_CNTL_DURABILITY_TIMEOUT) \
+    X(LCB_CNTL_HTTP_TIMEOUT) \
+    X(LCB_CNTL_VIEW_TIMEOUT) \
+    X(LCB_CNTL_RBUFSIZE) \
+    X(LCB_CNTL_WBUFSIZE) \
+    X(LCB_CNTL_CONFIGURATION_TIMEOUT) \
+    X(CNTL_COUCHNODE_VERSION) \
+    X(CNTL_LIBCOUCHBASE_VERSION) \
+    X(CNTL_CLNODES) \
+    X(CNTL_RESTURI)
+
+#define X(n) \
+    o->Set(String::NewSymbol(#n), Integer::New(n));
+
+    XCONSTANTS(X)
+
+#undef X
+    return o;
+}
+
 void CouchbaseImpl::Init(Handle<Object> target)
 {
     HandleScope scope;
@@ -99,13 +141,6 @@ void CouchbaseImpl::Init(Handle<Object> target)
     s_ct->SetClassName(String::NewSymbol("CouchbaseImpl"));
 
     NODE_SET_PROTOTYPE_METHOD(s_ct, "strError", StrError);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "getVersion", GetVersion);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "setTimeout", SetTimeout);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "getTimeout", GetTimeout);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "getRestUri", GetRestUri);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "setSynchronous", SetSynchronous);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "isSynchronous", IsSynchronous);
-    NODE_SET_PROTOTYPE_METHOD(s_ct, "getLastError", GetLastError);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "on", On);
 //    NODE_SET_PROTOTYPE_METHOD(s_ct, "view", View);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "shutdown", Shutdown);
@@ -120,11 +155,11 @@ void CouchbaseImpl::Init(Handle<Object> target)
     NODE_SET_PROTOTYPE_METHOD(s_ct, "lockMultiEx", LockMultiEx);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "unlockMultiEx", UnlockMultiEx);
     NODE_SET_PROTOTYPE_METHOD(s_ct, "arithmeticMultiEx", ArithmeticMultiEx);
-
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "_control", _Control);
+    NODE_SET_PROTOTYPE_METHOD(s_ct, "_connect", Connect);
     target->Set(String::NewSymbol("CouchbaseImpl"), s_ct->GetFunction());
-
+    target->Set(String::NewSymbol("Constants"), createConstants());
     NameMap::initialize();
-    Cas::initialize();
 }
 
 Handle<Value> CouchbaseImpl::On(const Arguments &args)
@@ -167,13 +202,14 @@ Handle<Value> CouchbaseImpl::on(const Arguments &args)
 Handle<Value> CouchbaseImpl::New(const Arguments &args)
 {
     HandleScope scope;
+    CBExc exc;
 
     if (args.Length() < 1) {
-        return ThrowException("You need to specify the URI for the REST server");
+        return exc.eArguments("Need a URI").throwV8();
     }
 
     if (args.Length() > 4) {
-        return ThrowException("Too many arguments");
+        return exc.eArguments("Too many arguments").throwV8();
     }
 
     char *argv[4];
@@ -185,11 +221,10 @@ Handle<Value> CouchbaseImpl::New(const Arguments &args)
             Local<String> s = args[ii]->ToString();
             argv[ii] = new char[s->Length() + 1];
             s->WriteAscii(argv[ii]);
+
         } else if (!args[ii]->IsNull() && !args[ii]->IsUndefined()) {
-            stringstream ss;
-            ss << "Incorrect datatype provided as argument nr. "
-               << ii + 1 << " (expected string)";
-            return ThrowException(ss.str().c_str());
+            exc = CBExc("Incorrect arguments", args[ii]);
+            return exc.throwV8();
         }
     }
 
@@ -203,7 +238,7 @@ Handle<Value> CouchbaseImpl::New(const Arguments &args)
     err = lcb_create_libuv_io_opts(0, &iops, &iopsOptions);
 
     if (iops == NULL) {
-        return ThrowException("Failed to create a new IO ops structure");
+        return exc.eLcb(err).throwV8();
     }
 
 
@@ -216,20 +251,24 @@ Handle<Value> CouchbaseImpl::New(const Arguments &args)
     }
 
     if (err != LCB_SUCCESS) {
-        return ThrowException("Failed to create libcouchbase instance");
-    }
-
-    lcb_uint32_t val = 10000000;
-    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_CONFIGURATION_TIMEOUT, &val);
-    lcb_cntl(instance, LCB_CNTL_SET, LCB_CNTL_OP_TIMEOUT, &val);
-
-    if (lcb_connect(instance) != LCB_SUCCESS) {
-        return ThrowException("Failed to schedule connection");
+        exc.eLcb(err).throwV8();
     }
 
     CouchbaseImpl *hw = new CouchbaseImpl(instance);
     hw->Wrap(args.This());
     return args.This();
+}
+
+Handle<Value> CouchbaseImpl::Connect(const Arguments &args)
+{
+    HandleScope scope;
+    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
+    lcb_error_t ec = lcb_connect(me->getLibcouchbaseHandle());
+    if (ec != LCB_SUCCESS) {
+        return CBExc().eLcb(ec).throwV8();
+    }
+
+    return scope.Close(True());
 }
 
 Handle<Value> CouchbaseImpl::StrError(const Arguments &args)
@@ -242,107 +281,6 @@ Handle<Value> CouchbaseImpl::StrError(const Arguments &args)
 
     Local<String> result = String::New(errorStr);
     return scope.Close(result);
-}
-
-Handle<Value> CouchbaseImpl::GetVersion(const Arguments &)
-{
-    HandleScope scope;
-
-    stringstream ss;
-    ss << "libcouchbase node.js v1.0.0 (v" << lcb_get_version(NULL)
-       << ")";
-
-    Local<String> result = String::New(ss.str().c_str());
-    return scope.Close(result);
-}
-
-Handle<Value> CouchbaseImpl::SetTimeout(const Arguments &args)
-{
-    if (args.Length() != 1 || !args[0]->IsInt32()) {
-        return ThrowIllegalArgumentsException();
-    }
-
-    HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    uint32_t timeout = args[0]->Int32Value();
-    lcb_set_timeout(me->instance, timeout);
-
-    return True();
-}
-
-Handle<Value> CouchbaseImpl::GetTimeout(const Arguments &args)
-{
-    if (args.Length() != 0) {
-        return ThrowIllegalArgumentsException();
-    }
-
-    HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    return scope.Close(Integer::New(lcb_get_timeout(me->instance)));
-}
-
-Handle<Value> CouchbaseImpl::GetRestUri(const Arguments &args)
-{
-    if (args.Length() != 0) {
-        return ThrowIllegalArgumentsException();
-    }
-
-    HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    stringstream ss;
-    ss << lcb_get_host(me->instance) << ":" << lcb_get_port(
-           me->instance);
-
-    return scope.Close(String::New(ss.str().c_str()));
-}
-
-Handle<Value> CouchbaseImpl::SetSynchronous(const Arguments &args)
-{
-    if (args.Length() != 1) {
-        return ThrowIllegalArgumentsException();
-    }
-
-    HandleScope scope;
-
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-
-    lcb_syncmode_t mode;
-    if (args[0]->BooleanValue()) {
-        mode = LCB_SYNCHRONOUS;
-    } else {
-        mode = LCB_ASYNCHRONOUS;
-    }
-
-    lcb_behavior_set_syncmode(me->instance, mode);
-    return True();
-}
-
-Handle<Value> CouchbaseImpl::IsSynchronous(const Arguments &args)
-{
-    if (args.Length() != 0) {
-        return ThrowIllegalArgumentsException();
-    }
-
-    HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    if (lcb_behavior_get_syncmode(me->instance)
-            == LCB_SYNCHRONOUS) {
-        return True();
-    }
-
-    return False();
-}
-
-Handle<Value> CouchbaseImpl::GetLastError(const Arguments &args)
-{
-    if (args.Length() != 0) {
-        return ThrowIllegalArgumentsException();
-    }
-
-    HandleScope scope;
-    CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
-    const char *msg = lcb_strerror(me->instance, me->lastError);
-    return scope.Close(String::New(msg));
 }
 
 void CouchbaseImpl::errorCallback(lcb_error_t err, const char *errinfo)
@@ -373,6 +311,7 @@ void CouchbaseImpl::onConnect(lcb_configuration_t config)
         }
         runScheduledOperations();
     }
+
     lcb_set_configuration_callback(instance, NULL);
 
     EventMap::iterator iter = events.find("connect");
@@ -410,22 +349,20 @@ void CouchbaseImpl::runScheduledOperations()
 Handle<Value> CouchbaseImpl::makeOperation(const Arguments &args, Command &op)
 {
     HandleScope scope;
-
     CouchbaseImpl *me = ObjectWrap::Unwrap<CouchbaseImpl>(args.This());
 
     if (!op.initialize()) {
-        return op.getError().throwV8();
+        return bailOut(args, op.getError());
     }
 
     if (!op.process()) {
-        return op.getError().throwV8();
+        return bailOut(args, op.getError());
     }
 
     Cookie *cc = op.createCookie();
     cc->setParent(args.This());
 
     if (!me->connected) {
-        abort();
         // Schedule..
         Command *cp = op.copy();
         me->pendingCommands.push(cp);
@@ -549,9 +486,24 @@ extern "C" {
 
 void CouchbaseImpl::shutdown(void)
 {
+    if (!instance) {
+        return;
+    }
+
     uv_timer_t *timer = new uv_timer_t;
     uv_timer_init(uv_default_loop(), timer);
     timer->data = instance;
     instance = NULL;
-    uv_timer_start(timer, libuv_shutdown_cb, 10, 0);
+    uv_timer_start(timer, libuv_shutdown_cb, 0, 0);
+}
+
+
+void CouchbaseImpl::dumpMemoryInfo(const std::string& mark="")
+{
+    HeapStatistics stats;
+    return;
+
+    V8::GetHeapStatistics(&stats);
+    printf("%-20s: HEAP: Used %lu/%lu\n", mark.c_str(), stats.used_heap_size(),
+           stats.total_heap_size());
 }

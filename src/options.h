@@ -32,9 +32,9 @@ enum ParseStatus {
 };
 
 struct ParamSlot {
-    static ParseStatus validateNumber(const Handle<Value>&, CBExc&);
-    virtual ParseStatus parseValue(const Handle<Value>&, CBExc&) = 0;
-    virtual Handle<String>& getName() const = 0;
+    static ParseStatus validateNumber(const Handle<Value>, CBExc&);
+    virtual ParseStatus parseValue(const Handle<Value>, CBExc&) = 0;
+    virtual Handle<String> getName() const = 0;
     ParamSlot() : status(PARSE_OPTION_EMPTY) { }
     virtual ~ParamSlot() { }
 
@@ -48,33 +48,33 @@ struct ParamSlot {
 
     ParseStatus status;
 
-    static bool parseAll(const Handle<Object>&, ParamSlot **, size_t, CBExc&);
+    static bool parseAll(const Handle<Object>, ParamSlot **, size_t, CBExc&);
 };
 
 struct CasSlot : ParamSlot
 {
     lcb_cas_t v;
     CasSlot() : v(0) {}
-    virtual Handle<String> &getName() const {
+    virtual Handle<String> getName() const {
         return NameMap::names[NameMap::CAS];
     }
 
-    virtual ParseStatus parseValue(const Handle<Value>&, CBExc &);
+    virtual ParseStatus parseValue(const Handle<Value>, CBExc &);
 };
 
 struct ExpOption : ParamSlot
 {
     uint32_t v;
-    virtual ParseStatus parseValue(const Handle<Value>&, CBExc &);
+    virtual ParseStatus parseValue(const Handle<Value>, CBExc &);
     ExpOption() : v(0) {}
 
-    virtual Handle<String> &getName() const {
+    virtual Handle<String> getName() const {
         return NameMap::names[NameMap::EXPIRY];
     }
 };
 
 struct LockOption : ExpOption {
-    virtual Handle<String> &getName() const {
+    virtual Handle<String> getName() const {
         return NameMap::names[NameMap::LOCKTIME];
     }
 };
@@ -83,8 +83,8 @@ struct FlagsOption : ParamSlot
 {
     uint32_t v;
     FlagsOption() : v(0) { }
-    virtual ParseStatus parseValue(const Handle<Value> &val, CBExc &ex);
-    virtual Handle<String> &getName() const {
+    virtual ParseStatus parseValue(const Handle<Value> val, CBExc &ex);
+    virtual Handle<String> getName() const {
         return NameMap::names[NameMap::FLAGS];
     }
 };
@@ -93,21 +93,21 @@ struct Int64Option : ParamSlot
 {
     int64_t v;
     Int64Option() : v(0) {}
-    virtual ParseStatus parseValue(const Handle<Value> &, CBExc&);
+    virtual ParseStatus parseValue(const Handle<Value> , CBExc&);
 };
 
 struct Uint64Option : ParamSlot
 {
     uint64_t v;
     Uint64Option() :v(0) {}
-    virtual ParseStatus parseValue(const Handle<Value> &, CBExc&);
+    virtual ParseStatus parseValue(const Handle<Value> , CBExc&);
 };
 
 struct BooleanOption : ParamSlot
 {
     bool v;
     BooleanOption() :v(false) {}
-    virtual ParseStatus parseValue(const Handle<Value> &val, CBExc&) {
+    virtual ParseStatus parseValue(const Handle<Value> val, CBExc&) {
         v = val->BooleanValue();
         return returnStatus(PARSE_OPTION_FOUND);
     }
@@ -116,9 +116,9 @@ struct BooleanOption : ParamSlot
 struct CallableOption : ParamSlot
 {
     Handle<Function> v;
-    virtual ParseStatus parseValue(const Handle<Value> &val, CBExc& ex);
+    virtual ParseStatus parseValue(const Handle<Value> val, CBExc& ex);
 
-    virtual Handle<String>& getName() const {
+    virtual Handle<String> getName() const {
         abort();
         static Handle<String> h;
         return h;
@@ -127,20 +127,20 @@ struct CallableOption : ParamSlot
 
 struct StringOption : ParamSlot
 {
-    Handle<Value> v;
-    virtual ParseStatus parseValue(const Handle<Value> &val, CBExc& ex);
+    Local<Value> v;
+    virtual ParseStatus parseValue(const Handle<Value> val, CBExc& ex);
 };
 
 struct KeyOption : StringOption
 {
-    virtual Handle<String> &getName() const {
+    virtual Handle<String> getName() const {
         return NameMap::names[NameMap::KEY];
     }
 };
 
 struct ValueOption : StringOption
 {
-    virtual Handle<String> &getName() const {
+    virtual Handle<String> getName() const {
         return NameMap::names[NameMap::VALUE];
     }
 

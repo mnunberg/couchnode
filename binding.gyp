@@ -80,10 +80,12 @@
     'defines': ['LCBUV_EMBEDDED_SOURCE'],
     'sources': [
       'src/couchbase_impl.cc',
+      'src/control.cc',
       'src/namemap.cc',
       'src/cookie.cc',
       'src/commandbase.cc',
       'src/commands.cc',
+      'src/exception.cc',
       'src/options.cc',
       'src/cas.cc',
       'src/uv-plugin-all.c'

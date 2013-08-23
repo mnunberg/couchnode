@@ -1,7 +1,6 @@
 /* -*- Mode: C++; tab-width: 4; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 #include "couchbase_impl.h"
 #include <sstream>
-static v8::Persistent<v8::ObjectTemplate> CasTemplate;
 using namespace Couchnode;
 
 /**
@@ -9,84 +8,49 @@ using namespace Couchnode;
  * save on having to make a new uint64_t*
  */
 #if defined(_LP64) && !defined(COUCHNODE_NO_CASINTPTR)
-static inline void *cas_to_pointer(uint64_t cas)
+
+Handle<Value> Cas::CreateCas(uint64_t cas)
 {
-    return (void *)(uintptr_t)cas;
+    return External::New((void*)cas);
 }
-static inline uint64_t cas_from_pointer(void *ptr)
+
+bool Cas::GetCas(Handle<Value> obj, uint64_t *p)
 {
-    return (uint64_t)(uintptr_t)ptr;
+    if (!obj->IsExternal()) {
+        return false;
+    }
+    *p = (uint64_t)External::Cast(*obj)->Value();
+    return true;
 }
-static inline void free_cas_pointer(void *) { }
 
 #else
 
-static inline void *cas_to_pointer(uint64_t cas)
-{
-    return new uint64_t(cas);
+static void casDtor(Persistent<Value> obj, void *) {
+    uint64_t *p = obj.As<Object>()->GetIndexedPropertiesExternalArrayData();
+    delete p;
+    obj.Dispose();
+    obj.Clear();
 }
 
-static inline uint64_t cas_from_pointer(void *ptr)
-{
-    if (!ptr) {
-        return 0;
-    }
-    return *(uint64_t *)ptr;
-}
 
-static inline void free_cas_pointer(void *ptr)
-{
-    if (ptr) {
-        delete ptr;
-    }
-}
-
-#endif
-
-void Cas::initialize()
-{
-    CasTemplate = v8::Persistent<v8::ObjectTemplate>::New(
-                      v8::ObjectTemplate::New());
-    CasTemplate->SetInternalFieldCount(1);
-
-    CasTemplate->SetAccessor(NameMap::names[NameMap::PROP_STR],
-                             GetHumanReadable);
-}
-
-static void cas_object_dtor(v8::Persistent<v8::Value> handle, void *)
-{
-    v8::Handle<v8::Object> obj = v8::Persistent<v8::Object>::Cast(handle);
-    free_cas_pointer(obj->GetPointerFromInternalField(0));
-    handle.Dispose();
-    handle.Clear();
-}
-
-v8::Handle<v8::Value> Cas::GetHumanReadable(v8::Local<v8::String>,
-                                            const v8::AccessorInfo &accinfo)
-{
-    std::stringstream ss;
-    uint64_t cas = cas_from_pointer(
-                       accinfo.This()->GetPointerFromInternalField(0));
-    ss << cas;
-    return v8::Local<v8::String>(v8::String::New(ss.str().c_str()));
-}
-
-Handle<v8::Object> Cas::CreateCas(uint64_t cas)
-{
-    v8::Persistent<v8::Object> ret =
-            v8::Persistent<v8::Object>::New(CasTemplate->NewInstance());
-    ret->SetPointerInInternalField(0, cas_to_pointer(cas));
-    ret.MakeWeak(NULL, cas_object_dtor);
-
+inline Handle<Value> Cas::CreateCas(uint64_t cas) {
+    Persistent<Object> ret = Persistent<Object>::New(Object::New());
+    uint64_t *p = new uint64_t(cas);
+    ret->SetIndexedPropertiesToExternalArrayData(p,
+                                                 kExternalByteArray, sizeof(cas));
+    ret.MakeWeak(NULL, casDtor);
     return ret;
 }
 
-uint64_t Cas::GetCas(v8::Handle<v8::Object> vstr)
-{
-    uint64_t cas =
-        cas_from_pointer(vstr->GetPointerFromInternalField(0));
-    if (!cas) {
-        throw Couchnode::CBExc("Invalid CAS", vstr);
+inline bool Cas::GetCas(Handle<Value> obj, uint64_t *p) {
+    Handle<Object> realObj = obj.As<Object>();
+    if (!realObj->IsObject()) {
+        return false;
     }
-    return cas;
+    if (realObj->GetIndexedPropertiesExternalArrayDataLength() != sizeof(*p)) {
+        return false;
+    }
+    *p = *(uint64_t)realObj->GetIndexedPropertiesExternalArrayData();
+    return true;
 }
+#endif

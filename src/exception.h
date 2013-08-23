@@ -14,8 +14,8 @@ namespace Couchnode {
 enum ErrType {
     EXC_SUCCESS = 0x00,
     EXC_ARGUMENTS = 0x01,
-    EXC_LCB = 0x01,
-    EXC_INTERNAL = 0x02
+    EXC_LCB = 0x02,
+    EXC_INTERNAL = 0x03
 };
 
 enum ErrCode {
@@ -30,77 +30,55 @@ enum ErrCode {
 
 class CBExc
 {
+
 public:
-    CBExc(const char *msg, const Handle<Value> &at)
-        : message(msg), minor_(ERR_OK), major_(EXC_SUCCESS), err(LCB_SUCCESS), isSet(true) {
-        String::AsciiValue valstr(at);
-        if (*valstr) {
-            message += " at '";
-            message += *valstr;
-            message += "'";
-        }
-    }
+    CBExc(const char *, const Handle<Value>);
+    CBExc();
 
-    CBExc() :
-        message(""), minor_(ERR_OK), major_(EXC_SUCCESS), err(LCB_SUCCESS), isSet(false) {}
+    void assign(ErrType, ErrCode, const std::string & msg = "");
+    void assign(lcb_error_t);
 
-    virtual ~CBExc() {
-        // Empty
-    }
-
-    void assign(ErrType type, ErrCode code, const std::string &msg = "") {
-        if (isSet) {
-            return;
-        }
-        major_ = type;
-        minor_ = code;
-        isSet = true;
-    }
 
     // Handy method to assign an argument error
-    void eArguments(const std::string& msg = "") {
+    // These all return the object so one can do:
+    // CBExc().eArguments().throwV8();
+
+    CBExc& eArguments(const std::string& msg = "") {
         assign(EXC_ARGUMENTS, ERR_USAGE, msg);
+        return *this;
     }
 
-    void eMemory(const std::string& msg = "") {
+    CBExc& eMemory(const std::string& msg = "") {
         assign(EXC_INTERNAL, ERR_MEMORY, msg);
+        return *this;
     }
 
-    void eInternal(const std::string &msg = "") {
+    CBExc& eInternal(const std::string &msg = "") {
         assign(EXC_INTERNAL, ERR_GENERIC, msg);
+        return *this;
     }
 
-    void eLcb(lcb_error_t err) {
+    CBExc& eLcb(lcb_error_t err) {
         assign(err);
-    }
-
-    void assign(lcb_error_t lcberr, ErrCode detail = ERR_GENERIC) {
-        if (isSet) {
-            return;
-        }
-
-        major_ = EXC_LCB;
-        minor_ = detail;
-        err = lcberr;
-        isSet = true;
+        return *this;
     }
 
     virtual const std::string &getMessage() const {
         return message;
     }
 
-    Handle<Value> throwV8() {
-        Handle<Value> exObj = asObject();
-        return v8::ThrowException(exObj);
+    virtual std::string formatMessage() const;
+
+    Handle<Value> throwV8() { return throwV8Object(); }
+    Handle<Value> asValue();
+
+
+    Handle<Value> throwV8Object() {
+        return v8::ThrowException(asValue());
     }
 
-    Handle<Object> asObject() {
-        Handle<Object> obj = Object::New();
-        obj->Set(String::New("lcb_error"), Number::New(err));
-        obj->Set(String::New("major"), Number::New(major_));
-        obj->Set(String::New("minor"), Number::New(minor_));
-        obj->Set(String::New("message"), String::New(message.c_str()));
-        return obj;
+    Handle<Value> throwV8String() {
+        return v8::ThrowException(String::New(formatMessage().c_str()));
     }
 
 protected:

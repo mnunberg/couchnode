@@ -4,8 +4,12 @@ namespace Couchnode {
 
 using namespace v8;
 
-bool Command::getBufBackedString(const Handle<Value> &v, char **k, size_t *n)
+bool Command::getBufBackedString(const Handle<Value> v, char **k, size_t *n)
 {
+    if (v.IsEmpty()) {
+        return false;
+    }
+
     Handle<String> s = v->ToString();
 
     if (s.IsEmpty()) {
@@ -38,15 +42,16 @@ bool Command::initialize()
 
     } else if (keys->IsObject()) {
         kcollType = ObjectKeys;
-        ncmds = keys->ToObject()->GetPropertyNames()->Length();
-
+        Local<Array> propNames(keys.As<Object>()->GetPropertyNames());
+        ncmds = propNames->Length();
     } else {
         kcollType = SingleKey;
         ncmds = 1;
     }
 
+
     Parameters* params = getParams();
-    Handle<Object> objParams = apiArgs[1].As<Object>();
+    Handle<Object> objParams(apiArgs[1].As<Object>());
 
     if (!initCommandList()) {
         err.eMemory("Command list");
@@ -66,8 +71,8 @@ bool Command::initialize()
     return true;
 }
 
-bool Command::processSingle(Handle<Value>& single,
-                            Handle<Value>& options,
+bool Command::processSingle(Handle<Value> single,
+                            Handle<Value> options,
                             unsigned int ix)
 {
     char *k;
@@ -80,7 +85,7 @@ bool Command::processSingle(Handle<Value>& single,
     return getHandler()(this, k, n, options, ix);
 }
 
-bool Command::processArray(Handle<Array>& arry)
+bool Command::processArray(Handle<Array> arry)
 {
     Handle<Value> dummy;
     for (unsigned int ii = 0; ii < arry->Length(); ii++) {
@@ -93,8 +98,10 @@ bool Command::processArray(Handle<Array>& arry)
     return true;
 }
 
-bool Command::processObject(Handle<Object>& obj)
+bool Command::processObject(Handle<Object> obj)
 {
+
+
     Handle<Array> dKeys = obj->GetPropertyNames();
     for (unsigned int ii = 0; ii < dKeys->Length(); ii++) {
         Handle<Value> curKey = dKeys->Get(ii);
@@ -112,7 +119,6 @@ bool Command::process(ItemHandler handler)
 {
     char *k;
     size_t nkey;
-    HandleScope scope;
 
     switch (kcollType) {
     case SingleKey: {
@@ -139,7 +145,7 @@ bool Command::process(ItemHandler handler)
     return false;
 }
 
-bool Command::parseCommonOptions(const Handle<Object>& obj)
+bool Command::parseCommonOptions(const Handle<Object> obj)
 {
     if (!callback.parseValue(apiArgs[apiArgs.Length()-1], err)) {
         return false;
@@ -176,5 +182,8 @@ Cookie* Command::createCookie()
     cookie->setCallback(callback.v, cbMode);
     return cookie;
 }
+
+Command::Command(Command &other)
+    : apiArgs(other.apiArgs), cookie(other.cookie), bufs(other.bufs) {}
 
 };
