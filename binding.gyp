@@ -37,7 +37,7 @@
       }],
       ['OS!="win"', {
         'variables' : {
-            'couchbase_root%' : '""'
+            'couchbase_root%' : '/opts/libcouchbase'
         },
 
         'link_settings': {
@@ -66,7 +66,7 @@
                 'include_dirs': [ '<(couchbase_root)/include' ],
                 'libraries+': [
                     '-L<(couchbase_root)/lib',
-                    '-Wl,-rpath=<(couchbase_root)/lib'
+                    '-Wl,-rpath <(couchbase_root)/lib'
                 ]
             }]
         ],

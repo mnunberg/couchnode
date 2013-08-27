@@ -16,6 +16,8 @@
 
 
 *~
+*.swp
+.vimsession
 
 /.lock-wscript
 /build/
